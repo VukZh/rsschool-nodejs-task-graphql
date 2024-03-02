@@ -1,8 +1,8 @@
-import { GraphQLObjectType, GraphQLID, GraphQLBoolean, GraphQLInt } from 'graphql';
+import {GraphQLObjectType, GraphQLID, GraphQLBoolean, GraphQLInt, GraphQLList} from 'graphql';
 import { UserType } from '../users/users.js';
-import { MemberType } from '../member-types/member-types.js';
+import {MemberType, MemberTypeIdType} from '../member-types/member-types.js';
 import { FastifyInstance } from 'fastify/types/instance.js';
-
+import { MemberTypeId } from '../../../member-types/schemas.js'
 type ProfileEntity = {
   id: string;
   isMale: boolean;
@@ -21,11 +21,11 @@ const ProfileType = new GraphQLObjectType({
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       type: UserType,
       resolve: async (
-        { id }: ProfileEntity,
+        { userId }: ProfileEntity,
         args: Omit<ProfileEntity, 'id'>,
         { prisma }: FastifyInstance,
       ) => {
-        return await prisma.user.findUnique({ where: { id: id } });
+        return await prisma.user.findUnique({ where: { id: userId} });
       },
     },
     userId: { type: GraphQLID },
@@ -33,16 +33,34 @@ const ProfileType = new GraphQLObjectType({
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       type: MemberType,
       resolve: async (
-        { id }: ProfileEntity,
+        { memberTypeId }: ProfileEntity,
         args: Omit<ProfileEntity, 'id'>,
         { prisma }: FastifyInstance,
       ) => {
-        return await prisma.memberType.findUnique({ where: { id: id } });
+        return await prisma.memberType.findUnique({ where: { id: memberTypeId } });
       },
     },
-    memberTypeId: { type: GraphQLID },
+    memberTypeId: { type: MemberTypeIdType },
   }),
 });
 
+const ProfileQueryType = {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  type: ProfileType,
+  args: {id: {
+    type: GraphQLID
+    }},
+  resolve: async (source: unknown, {id}: {id: string}, { prisma }: FastifyInstance) => {
+    return await prisma.profile.findUnique({where: {id:id}})
+  }
+}
+
+const ProfilesQueryType = {
+  type: new GraphQLList(ProfileType),
+  resolve: async (source: unknown, args: unknown, { prisma }: FastifyInstance) => {
+    return await prisma.profile.findMany()
+  }
+}
+
 // @ts-ignore
-export { ProfileType };
+export { ProfileType, ProfileQueryType, ProfilesQueryType };

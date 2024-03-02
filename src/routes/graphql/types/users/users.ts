@@ -25,7 +25,7 @@ const UserType = new GraphQLObjectType({
         args: Omit<UserEntity, 'id'>,
         { prisma }: FastifyInstance,
       ) => {
-        return await prisma.profile.findUnique({ where: { id: id } });
+        return await prisma.profile.findUnique({ where: { userId: id } });
       },
     },
     posts: {
@@ -35,7 +35,7 @@ const UserType = new GraphQLObjectType({
         args: Omit<UserEntity, 'id'>,
         { prisma }: FastifyInstance,
       ) => {
-        return await prisma.post.findMany({ where: { id: id } });
+        return await prisma.post.findMany({ where: { authorId: id } });
       },
     },
     userSubscribedTo: {
@@ -69,5 +69,24 @@ const UserType = new GraphQLObjectType({
   }),
 });
 
+const UserQueryType = {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  type: UserType,
+  args: {id: {
+    type: GraphQLID
+    }},
+  resolve: async (source: unknown, {id}: {id: string}, { prisma }: FastifyInstance) => {
+    return await prisma.user.findUnique({where: {id: id}})
+  }
+}
+
+const UsersQueryType = {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  type: new GraphQLList(UserType),
+  resolve: async (source: unknown, args: unknown, { prisma }: FastifyInstance) => {
+    return await prisma.user.findMany()
+  }
+}
+
 // @ts-ignore
-export { UserType };
+export { UserType, UserQueryType, UsersQueryType };

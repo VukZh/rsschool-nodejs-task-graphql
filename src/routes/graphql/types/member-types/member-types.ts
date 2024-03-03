@@ -3,7 +3,7 @@ import {
   GraphQLList,
   GraphQLID,
   GraphQLFloat,
-  GraphQLInt, GraphQLEnumType,
+  GraphQLInt, GraphQLEnumType, GraphQLNonNull,
 } from 'graphql';
 import { ProfileType } from '../profiles/profiles.js';
 import { FastifyInstance } from 'fastify/types/instance.js';
@@ -29,7 +29,7 @@ const MemberType = new GraphQLObjectType({
       type: new GraphQLList(ProfileType),
       resolve: async (
         { id }: MemberTypeEntity,
-        args: Omit<MemberTypeEntity, 'id'>,
+        args: unknown,
         { prisma }: FastifyInstance,
       ) => {
         return await prisma.profile.findMany({ where: { memberTypeId: id } });
@@ -41,17 +41,13 @@ const MemberType = new GraphQLObjectType({
 const MemberQueryType = {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   type: MemberType,
-  args: {
-    id: {
-      type: GraphQLInt,
-    },
-  },
+  args: { id: { type: new GraphQLNonNull(MemberTypeIdType) } },
   resolve: async (
     source: unknown,
     { id }: { id: MemberTypeId },
     { prisma }: FastifyInstance,
   ) => {
-    return await prisma.memberType.findUnique({ where: { id: id } });
+    return await prisma.memberType.findUnique({ where: { id } });
   },
 };
 

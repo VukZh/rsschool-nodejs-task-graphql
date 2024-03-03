@@ -7,7 +7,6 @@ import {ProfileQueryType, ProfilesQueryType} from "./types/profiles/profiles.js"
 
 export const Query = new GraphQLObjectType({
   name: 'Query',
-  // @ts-ignore
   fields: () => ({
     user: UserQueryType,
     users: UsersQueryType,

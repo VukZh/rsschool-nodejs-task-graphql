@@ -4,6 +4,8 @@ import {
   GraphQLID,
   GraphQLList,
   GraphQLNonNull,
+  GraphQLInputObjectType,
+  GraphQLBoolean,
 } from 'graphql';
 import { UserType } from '../users/users.js';
 import { FastifyInstance } from 'fastify/types/instance.js';
@@ -51,25 +53,80 @@ const PostsQueryType = {
   },
 };
 
-const CreatePostType = {
+const CreatePostType = new GraphQLInputObjectType({
   name: 'CreatePostInput',
   fields: () => ({
-    title: {
-      title: { type: new GraphQLNonNull(GraphQLString)},
-      content: { type: new GraphQLNonNull(GraphQLString) },
-      authorId: { type: new GraphQLNonNull(UUIDType) },
-    },
+    title: { type: new GraphQLNonNull(GraphQLString) },
+    content: { type: new GraphQLNonNull(GraphQLString) },
+    authorId: { type: new GraphQLNonNull(UUIDType) },
   }),
-};
+});
 
-const ChangePostType = {
+const ChangePostType = new GraphQLInputObjectType({
   name: 'ChangePostInput',
   fields: () => ({
-    title: {
-      title: { type: GraphQLString},
-      content: { type: GraphQLString },
-    },
+    title: { type: GraphQLString },
+    content: { type: GraphQLString },
   }),
+});
+
+const CreatePostMutationType = {
+  type: PostType,
+  args: {
+    dto: {
+      type: new GraphQLNonNull(CreatePostType),
+    },
+  },
+  resolve: async (
+    source: unknown,
+    { dto }: { dto: Omit<PostEntity, 'id'> },
+    { prisma }: FastifyInstance,
+  ) => {
+    return await prisma.post.create({ data: dto });
+  },
 };
-// @ts-ignore
-export { PostType, PostQueryType, PostsQueryType };
+
+const ChangePostMutationType = {
+  type: PostType,
+  args: {
+    id: {
+      type: new GraphQLNonNull(UUIDType),
+    },
+    dto: { type: new GraphQLNonNull(ChangePostType) },
+  },
+  resolve: async (
+    source: unknown,
+    { id, dto }: { id: string; dto: Partial<Omit<PostEntity, 'id' | 'authorId'>> },
+    { prisma }: FastifyInstance,
+  ) => {
+    return await prisma.post.update({ where: { id }, data: dto });
+  },
+};
+
+const DeletePostMutationType = {
+  type: GraphQLBoolean,
+  args: {
+    id: {
+      type: new GraphQLNonNull(UUIDType),
+    },
+  },
+  resolve: async (
+    source: unknown,
+    { id }: { id: string },
+    { prisma }: FastifyInstance,
+  ) => {
+    const result = await prisma.post.delete({ where: { id } });
+    return !!result;
+  },
+};
+
+
+export {
+  // @ts-ignore
+  PostType,
+  PostQueryType,
+  PostsQueryType,
+  CreatePostMutationType,
+  ChangePostMutationType,
+  DeletePostMutationType,
+};

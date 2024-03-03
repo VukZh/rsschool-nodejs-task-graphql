@@ -3,51 +3,39 @@ import {
   GraphQLString,
   GraphQLID,
   GraphQLFloat,
-  GraphQLList, GraphQLNonNull,
+  GraphQLList,
+  GraphQLNonNull,
 } from 'graphql';
 import { ProfileType } from '../profiles/profiles.js';
 import { PostType } from '../posts/posts.js';
 import { FastifyInstance } from 'fastify/types/instance.js';
-import {UUIDType} from "../uuid.js";
-import {GraphQLBoolean, GraphQLInt} from "graphql/index.js";
-import {MemberTypeIdType} from "../member-types/member-types.js";
+import { UUIDType } from '../uuid.js';
+import { GraphQLBoolean, GraphQLInputObjectType } from 'graphql/index.js';
 
 export type UserEntity = { id: string; balance: number; name: string };
 
 const UserType = new GraphQLObjectType({
   name: 'User',
   fields: () => ({
-    id: { type: new GraphQLNonNull(GraphQLID)},
+    id: { type: new GraphQLNonNull(GraphQLID) },
     name: { type: GraphQLString },
     balance: { type: GraphQLFloat },
     profile: {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       type: ProfileType,
-      resolve: async (
-        { id }: UserEntity,
-        args: unknown,
-        { prisma }: FastifyInstance,
-      ) => {
+      resolve: async ({ id }: UserEntity, args: unknown, { prisma }: FastifyInstance) => {
         return await prisma.profile.findUnique({ where: { userId: id } });
       },
     },
     posts: {
       type: new GraphQLList(PostType),
-      resolve: async (
-        { id }: UserEntity,
-        args: unknown,
-        { prisma }: FastifyInstance,
-      ) => {
+      resolve: async ({ id }: UserEntity, args: unknown, { prisma }: FastifyInstance) => {
         return await prisma.post.findMany({ where: { authorId: id } });
       },
     },
     userSubscribedTo: {
       type: new GraphQLList(UserType),
-      resolve: async (
-        { id }: UserEntity,
-        args: unknown,
-        { prisma }: FastifyInstance,
-      ) => {
+      resolve: async ({ id }: UserEntity, args: unknown, { prisma }: FastifyInstance) => {
         const usersSubscriber = await prisma.subscribersOnAuthors.findMany({
           where: { subscriberId: id },
         });
@@ -57,11 +45,7 @@ const UserType = new GraphQLObjectType({
     },
     subscribedToUser: {
       type: new GraphQLList(UserType),
-      resolve: async (
-        { id }: UserEntity,
-        args: unknown,
-        { prisma }: FastifyInstance,
-      ) => {
+      resolve: async ({ id }: UserEntity, args: unknown, { prisma }: FastifyInstance) => {
         const subscribers = await prisma.subscribersOnAuthors.findMany({
           where: { authorId: id },
         });
@@ -76,7 +60,11 @@ const UserQueryType = {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   type: UserType,
   args: { id: { type: new GraphQLNonNull(UUIDType) } },
-  resolve: async (source: unknown, { id }: { id: string }, { prisma }: FastifyInstance) => {
+  resolve: async (
+    source: unknown,
+    { id }: { id: string },
+    { prisma }: FastifyInstance,
+  ) => {
     return await prisma.user.findUnique({ where: { id } });
   },
 };
@@ -88,21 +76,123 @@ const UsersQueryType = {
   },
 };
 
-const CreateUserType = {
+const CreateUserType = new GraphQLInputObjectType({
   name: 'CreateUserInput',
   fields: () => ({
     name: { type: new GraphQLNonNull(GraphQLString) },
-    balance: { type: new GraphQLNonNull(GraphQLFloat) }
+    balance: { type: new GraphQLNonNull(GraphQLFloat) },
   }),
-};
+});
 
-const ChangeUserType = {
+const ChangeUserType = new GraphQLInputObjectType({
   name: 'ChangeUserInput',
   fields: () => ({
     name: { type: GraphQLString },
-    balance: { type: GraphQLFloat }
+    balance: { type: GraphQLFloat },
   }),
+});
+
+const CreateUserMutationType = {
+  type: UserType,
+  args: {
+    dto: {
+      type: new GraphQLNonNull(CreateUserType),
+    },
+  },
+  resolve: async (
+    source: unknown,
+    { dto }: { dto: Omit<UserEntity, 'id'> },
+    { prisma }: FastifyInstance,
+  ) => {
+    return await prisma.user.create({ data: dto });
+  },
 };
 
-// @ts-ignore
-export { UserType, UserQueryType, UsersQueryType };
+const ChangeUserMutationType = {
+  type: UserType,
+  args: {
+    id: { type: new GraphQLNonNull(UUIDType) },
+    dto: { type: new GraphQLNonNull(ChangeUserType) },
+  },
+  resolve: async (
+    source: unknown,
+    { id, dto }: { id: string; dto: Partial<Omit<UserEntity, 'id'>> },
+    { prisma }: FastifyInstance,
+  ) => {
+    return await prisma.user.update({ where: { id }, data: dto });
+  },
+};
+
+const DeleteUserMutationType = {
+  type: GraphQLBoolean,
+  args: {
+    id: {
+      type: new GraphQLNonNull(UUIDType),
+    },
+  },
+  resolve: async (
+    source: unknown,
+    { id }: { id: string },
+    { prisma }: FastifyInstance,
+  ) => {
+    const result = await prisma.user.delete({ where: { id } });
+    return !!result;
+  },
+};
+
+const SubscribeUserMutationType = {
+  type: UserType,
+  args: {
+    userId: { type: new GraphQLNonNull(UUIDType) },
+    authorId: { type: new GraphQLNonNull(UUIDType) },
+  },
+  resolve: async (
+    source: unknown,
+    { userId, authorId }: { userId: string; authorId: string },
+    { prisma }: FastifyInstance,
+  ) => {
+    return await prisma.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        userSubscribedTo: {
+          create: {
+            authorId,
+          },
+        },
+      },
+    });
+  },
+};
+
+const UnsubscribeUserMutationType = {
+  type: GraphQLBoolean,
+  args: {
+    userId: { type: new GraphQLNonNull(UUIDType) },
+    authorId: { type: new GraphQLNonNull(UUIDType) },
+  },
+  resolve: async (
+    source: unknown,
+    { userId, authorId }: { userId: string; authorId: string },
+    { prisma }: FastifyInstance,
+  ) => {
+    const result = await prisma.subscribersOnAuthors.delete({
+      where: {
+        subscriberId_authorId: { subscriberId: userId, authorId }},
+    });
+    return !!result;
+  },
+};
+
+export {
+  // @ts-ignore
+  UserType,
+  UserQueryType,
+  UsersQueryType,
+  CreateUserMutationType,
+  ChangeUserMutationType,
+  DeleteUserMutationType,
+  SubscribeUserMutationType,
+  UnsubscribeUserMutationType,
+};

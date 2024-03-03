@@ -12,6 +12,7 @@ import { MemberType, MemberTypeIdType } from '../member-types/member-types.js';
 import { FastifyInstance } from 'fastify/types/instance.js';
 import { MemberTypeId } from '../../../member-types/schemas.js';
 import { UUIDType } from '../uuid.js';
+import { GraphQLInputObjectType } from 'graphql/index.js';
 
 type ProfileEntity = {
   id: string;
@@ -38,7 +39,7 @@ const ProfileType = new GraphQLObjectType({
         return await prisma.user.findUnique({ where: { id: userId } });
       },
     },
-    userId: { type: GraphQLString },
+    userId: { type: UUIDType },
     memberType: {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       type: MemberType,
@@ -78,24 +79,80 @@ const ProfilesQueryType = {
   },
 };
 
-const CreateProfileType = {
+const CreateProfileType = new GraphQLInputObjectType({
   name: 'CreateProfileInput',
   fields: () => ({
     isMale: { type: new GraphQLNonNull(GraphQLBoolean) },
     yearOfBirth: { type: new GraphQLNonNull(GraphQLInt) },
     userId: { type: new GraphQLNonNull(UUIDType) },
-    memberTypeId: { type: new GraphQLNonNull(MemberTypeIdType) }
+    memberTypeId: { type: new GraphQLNonNull(MemberTypeIdType) },
   }),
-};
+});
 
-const ChangeProfileType = {
+const ChangeProfileType = new GraphQLInputObjectType({
   name: 'ChangeProfileInput',
   fields: () => ({
     isMale: { type: GraphQLBoolean },
     yearOfBirth: { type: GraphQLInt },
-    memberTypeId: { type: MemberTypeIdType }
+    memberTypeId: { type: MemberTypeIdType },
   }),
+});
+
+const CreateProfileMutationType = {
+  type: ProfileType,
+  args: {
+    dto: {
+      type: new GraphQLNonNull(CreateProfileType),
+    },
+  },
+  resolve: async (
+    source: unknown,
+    { dto }: { dto: Omit<ProfileEntity, 'id'> },
+    { prisma }: FastifyInstance,
+  ) => {
+    return await prisma.profile.create({ data: dto });
+  },
 };
 
-// @ts-ignore
-export { ProfileType, ProfileQueryType, ProfilesQueryType };
+const ChangeProfileMutationType = {
+  type: ProfileType,
+  args: {
+    id: { type: new GraphQLNonNull(UUIDType) },
+    dto: { type: new GraphQLNonNull(ChangeProfileType) },
+  },
+  resolve: async (
+    source: unknown,
+    { id, dto }: { id: string; dto: Partial<Omit<ProfileEntity, 'id' & 'userId'>> },
+    { prisma }: FastifyInstance,
+  ) => {
+    console.log("dto", dto)
+    return await prisma.profile.update({ where: { id }, data: dto });
+  },
+};
+
+const DeleteProfileMutationType = {
+  type: GraphQLBoolean,
+  args: {
+    id: {
+      type: new GraphQLNonNull(UUIDType),
+    },
+  },
+  resolve: async (
+    source: unknown,
+    { id }: { id: string },
+    { prisma }: FastifyInstance,
+  ) => {
+    const result = await prisma.profile.delete({ where: { id } });
+    return !!result;
+  },
+};
+
+export {
+  // @ts-ignore
+  ProfileType,
+  ProfileQueryType,
+  ProfilesQueryType,
+  CreateProfileMutationType,
+  ChangeProfileMutationType,
+  DeleteProfileMutationType,
+};

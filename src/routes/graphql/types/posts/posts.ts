@@ -1,7 +1,13 @@
-import {GraphQLObjectType, GraphQLString, GraphQLID, GraphQLList, GraphQLNonNull} from 'graphql';
+import {
+  GraphQLObjectType,
+  GraphQLString,
+  GraphQLID,
+  GraphQLList,
+  GraphQLNonNull,
+} from 'graphql';
 import { UserType } from '../users/users.js';
 import { FastifyInstance } from 'fastify/types/instance.js';
-import {UUIDType} from "../uuid.js";
+import { UUIDType } from '../uuid.js';
 
 type PostEntity = { id: string; title: string; content: string; authorId: string };
 const PostType = new GraphQLObjectType({
@@ -29,7 +35,11 @@ const PostQueryType = {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   type: PostType,
   args: { id: { type: new GraphQLNonNull(UUIDType) } },
-  resolve: async (source: unknown, { id }: { id: string }, { prisma }: FastifyInstance) => {
+  resolve: async (
+    source: unknown,
+    { id }: { id: string },
+    { prisma }: FastifyInstance,
+  ) => {
     return await prisma.post.findUnique({ where: { id } });
   },
 };
@@ -41,5 +51,25 @@ const PostsQueryType = {
   },
 };
 
+const CreatePostType = {
+  name: 'CreatePostInput',
+  fields: () => ({
+    title: {
+      title: { type: new GraphQLNonNull(GraphQLString)},
+      content: { type: new GraphQLNonNull(GraphQLString) },
+      authorId: { type: new GraphQLNonNull(UUIDType) },
+    },
+  }),
+};
+
+const ChangePostType = {
+  name: 'ChangePostInput',
+  fields: () => ({
+    title: {
+      title: { type: GraphQLString},
+      content: { type: GraphQLString },
+    },
+  }),
+};
 // @ts-ignore
 export { PostType, PostQueryType, PostsQueryType };

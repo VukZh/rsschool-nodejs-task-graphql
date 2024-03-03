@@ -9,6 +9,8 @@ import { ProfileType } from '../profiles/profiles.js';
 import { PostType } from '../posts/posts.js';
 import { FastifyInstance } from 'fastify/types/instance.js';
 import {UUIDType} from "../uuid.js";
+import {GraphQLBoolean, GraphQLInt} from "graphql/index.js";
+import {MemberTypeIdType} from "../member-types/member-types.js";
 
 export type UserEntity = { id: string; balance: number; name: string };
 
@@ -84,6 +86,22 @@ const UsersQueryType = {
   resolve: async (source: unknown, args: unknown, { prisma }: FastifyInstance) => {
     return await prisma.user.findMany();
   },
+};
+
+const CreateUserType = {
+  name: 'CreateUserInput',
+  fields: () => ({
+    name: { type: new GraphQLNonNull(GraphQLString) },
+    balance: { type: new GraphQLNonNull(GraphQLFloat) }
+  }),
+};
+
+const ChangeUserType = {
+  name: 'ChangeUserInput',
+  fields: () => ({
+    name: { type: GraphQLString },
+    balance: { type: GraphQLFloat }
+  }),
 };
 
 // @ts-ignore

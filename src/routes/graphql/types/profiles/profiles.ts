@@ -5,13 +5,14 @@ import {
   GraphQLInt,
   GraphQLList,
   GraphQLNonNull,
-  GraphQLString
+  GraphQLString,
 } from 'graphql';
 import { UserType } from '../users/users.js';
-import {MemberType, MemberTypeIdType} from '../member-types/member-types.js';
+import { MemberType, MemberTypeIdType } from '../member-types/member-types.js';
 import { FastifyInstance } from 'fastify/types/instance.js';
-import { MemberTypeId } from '../../../member-types/schemas.js'
-import {UUIDType} from "../uuid.js";
+import { MemberTypeId } from '../../../member-types/schemas.js';
+import { UUIDType } from '../uuid.js';
+
 type ProfileEntity = {
   id: string;
   isMale: boolean;
@@ -34,7 +35,7 @@ const ProfileType = new GraphQLObjectType({
         args: unknown,
         { prisma }: FastifyInstance,
       ) => {
-        return await prisma.user.findUnique({ where: { id: userId} });
+        return await prisma.user.findUnique({ where: { id: userId } });
       },
     },
     userId: { type: GraphQLString },
@@ -56,20 +57,45 @@ const ProfileType = new GraphQLObjectType({
 const ProfileQueryType = {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   type: ProfileType,
-  args: {id: {
-    type: new GraphQLNonNull(UUIDType)
-    }},
-  resolve: async (source: unknown, {id}: {id: string}, { prisma }: FastifyInstance) => {
-    return await prisma.profile.findUnique({where: {id}})
-  }
-}
+  args: {
+    id: {
+      type: new GraphQLNonNull(UUIDType),
+    },
+  },
+  resolve: async (
+    source: unknown,
+    { id }: { id: string },
+    { prisma }: FastifyInstance,
+  ) => {
+    return await prisma.profile.findUnique({ where: { id } });
+  },
+};
 
 const ProfilesQueryType = {
   type: new GraphQLList(ProfileType),
   resolve: async (source: unknown, args: unknown, { prisma }: FastifyInstance) => {
-    return await prisma.profile.findMany()
-  }
-}
+    return await prisma.profile.findMany();
+  },
+};
+
+const CreateProfileType = {
+  name: 'CreateProfileInput',
+  fields: () => ({
+    isMale: { type: new GraphQLNonNull(GraphQLBoolean) },
+    yearOfBirth: { type: new GraphQLNonNull(GraphQLInt) },
+    userId: { type: new GraphQLNonNull(UUIDType) },
+    memberTypeId: { type: new GraphQLNonNull(MemberTypeIdType) }
+  }),
+};
+
+const ChangeProfileType = {
+  name: 'ChangeProfileInput',
+  fields: () => ({
+    isMale: { type: GraphQLBoolean },
+    yearOfBirth: { type: GraphQLInt },
+    memberTypeId: { type: MemberTypeIdType }
+  }),
+};
 
 // @ts-ignore
 export { ProfileType, ProfileQueryType, ProfilesQueryType };

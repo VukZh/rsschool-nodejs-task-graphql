@@ -10,6 +10,7 @@ import {
 import { UserType } from '../users/users.js';
 import { FastifyInstance } from 'fastify/types/instance.js';
 import { UUIDType } from '../uuid.js';
+import {Context, FastifyInstanceType} from "../../dataloaders.js";
 
 type PostEntity = { id: string; title: string; content: string; authorId: string };
 const PostType = new GraphQLObjectType({
@@ -25,7 +26,7 @@ const PostType = new GraphQLObjectType({
       resolve: async (
         { authorId }: PostEntity,
         args: Omit<PostEntity, 'id'>,
-        { prisma }: FastifyInstance,
+        { fastify: { prisma } }: Context,
       ) => {
         return await prisma.user.findUnique({ where: { id: authorId } });
       },
@@ -40,7 +41,7 @@ const PostQueryType = {
   resolve: async (
     source: unknown,
     { id }: { id: string },
-    { prisma }: FastifyInstance,
+    { fastify: { prisma } }: Context,
   ) => {
     return await prisma.post.findUnique({ where: { id } });
   },
@@ -48,7 +49,8 @@ const PostQueryType = {
 
 const PostsQueryType = {
   type: new GraphQLList(PostType),
-  resolve: async (source: unknown, args: unknown, { prisma }: FastifyInstance) => {
+  resolve: async (source: unknown, args: unknown,         { fastify: { prisma } }: Context,
+  ) => {
     return await prisma.post.findMany();
   },
 };
@@ -80,7 +82,7 @@ const CreatePostMutationType = {
   resolve: async (
     source: unknown,
     { dto }: { dto: Omit<PostEntity, 'id'> },
-    { prisma }: FastifyInstance,
+    { fastify: { prisma } }: Context,
   ) => {
     return await prisma.post.create({ data: dto });
   },
@@ -97,7 +99,7 @@ const ChangePostMutationType = {
   resolve: async (
     source: unknown,
     { id, dto }: { id: string; dto: Partial<Omit<PostEntity, 'id' | 'authorId'>> },
-    { prisma }: FastifyInstance,
+    { fastify: { prisma } }: Context,
   ) => {
     return await prisma.post.update({ where: { id }, data: dto });
   },
@@ -113,13 +115,12 @@ const DeletePostMutationType = {
   resolve: async (
     source: unknown,
     { id }: { id: string },
-    { prisma }: FastifyInstance,
+    { fastify: { prisma } }: Context,
   ) => {
     const result = await prisma.post.delete({ where: { id } });
     return !!result;
   },
 };
-
 
 export {
   // @ts-ignore

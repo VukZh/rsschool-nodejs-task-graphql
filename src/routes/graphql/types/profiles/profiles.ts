@@ -13,6 +13,7 @@ import { FastifyInstance } from 'fastify/types/instance.js';
 import { MemberTypeId } from '../../../member-types/schemas.js';
 import { UUIDType } from '../uuid.js';
 import { GraphQLInputObjectType } from 'graphql/index.js';
+import {Context, FastifyInstanceType} from "../../dataloaders.js";
 
 type ProfileEntity = {
   id: string;
@@ -34,7 +35,7 @@ const ProfileType = new GraphQLObjectType({
       resolve: async (
         { userId }: ProfileEntity,
         args: unknown,
-        { prisma }: FastifyInstance,
+        { fastify: { prisma } }: Context,
       ) => {
         return await prisma.user.findUnique({ where: { id: userId } });
       },
@@ -46,7 +47,7 @@ const ProfileType = new GraphQLObjectType({
       resolve: async (
         { memberTypeId }: ProfileEntity,
         args: unknown,
-        { prisma }: FastifyInstance,
+        { fastify: { prisma } }: Context,
       ) => {
         return await prisma.memberType.findUnique({ where: { id: memberTypeId } });
       },
@@ -66,7 +67,7 @@ const ProfileQueryType = {
   resolve: async (
     source: unknown,
     { id }: { id: string },
-    { prisma }: FastifyInstance,
+    { fastify: { prisma } }: Context,
   ) => {
     return await prisma.profile.findUnique({ where: { id } });
   },
@@ -74,7 +75,8 @@ const ProfileQueryType = {
 
 const ProfilesQueryType = {
   type: new GraphQLList(ProfileType),
-  resolve: async (source: unknown, args: unknown, { prisma }: FastifyInstance) => {
+  resolve: async (source: unknown, args: unknown,         { fastify: { prisma } }: Context,
+  ) => {
     return await prisma.profile.findMany();
   },
 };
@@ -108,7 +110,7 @@ const CreateProfileMutationType = {
   resolve: async (
     source: unknown,
     { dto }: { dto: Omit<ProfileEntity, 'id'> },
-    { prisma }: FastifyInstance,
+    { fastify: { prisma } }: Context,
   ) => {
     return await prisma.profile.create({ data: dto });
   },
@@ -123,7 +125,7 @@ const ChangeProfileMutationType = {
   resolve: async (
     source: unknown,
     { id, dto }: { id: string; dto: Partial<Omit<ProfileEntity, 'id' & 'userId'>> },
-    { prisma }: FastifyInstance,
+    { fastify: { prisma } }: Context,
   ) => {
     console.log("dto", dto)
     return await prisma.profile.update({ where: { id }, data: dto });
@@ -140,7 +142,7 @@ const DeleteProfileMutationType = {
   resolve: async (
     source: unknown,
     { id }: { id: string },
-    { prisma }: FastifyInstance,
+    { fastify: { prisma } }: Context,
   ) => {
     const result = await prisma.profile.delete({ where: { id } });
     return !!result;

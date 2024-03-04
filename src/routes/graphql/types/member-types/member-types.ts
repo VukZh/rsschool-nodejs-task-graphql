@@ -1,15 +1,25 @@
 import {
   GraphQLObjectType,
   GraphQLList,
-  GraphQLID,
   GraphQLFloat,
-  GraphQLInt, GraphQLEnumType, GraphQLNonNull,
+  GraphQLInt,
+  GraphQLEnumType,
+  GraphQLNonNull,
 } from 'graphql';
 import { ProfileType } from '../profiles/profiles.js';
-import { FastifyInstance } from 'fastify/types/instance.js';
 import { MemberTypeId } from '../../../member-types/schemas.js';
 
-type MemberTypeEntity = { id: MemberTypeId; discount: number; postsLimitPerMonth: number };
+import { FastifyBaseLogger, FastifyInstance, RawServerDefault } from 'fastify';
+import { IncomingMessage, ServerResponse } from 'node:http';
+import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
+import { FastifyInstanceType } from '../../dataloaders.js';
+import { Context } from '../../dataloaders.js';
+
+type MemberTypeEntity = {
+  id: MemberTypeId;
+  discount: number;
+  postsLimitPerMonth: number;
+};
 
 export const MemberTypeIdType = new GraphQLEnumType({
   name: 'MemberTypeId',
@@ -30,7 +40,7 @@ const MemberType = new GraphQLObjectType({
       resolve: async (
         { id }: MemberTypeEntity,
         args: unknown,
-        { prisma }: FastifyInstance,
+        { fastify: { prisma } }: Context,
       ) => {
         return await prisma.profile.findMany({ where: { memberTypeId: id } });
       },
@@ -45,7 +55,7 @@ const MemberQueryType = {
   resolve: async (
     source: unknown,
     { id }: { id: MemberTypeId },
-    { prisma }: FastifyInstance,
+    { fastify: { prisma } }: Context,
   ) => {
     return await prisma.memberType.findUnique({ where: { id } });
   },
@@ -53,7 +63,7 @@ const MemberQueryType = {
 
 const MembersQueryType = {
   type: new GraphQLList(MemberType),
-  resolve: async (source: unknown, args: unknown, { prisma }: FastifyInstance) => {
+  resolve: async (source: unknown, args: unknown, { fastify: { prisma } }: Context) => {
     return await prisma.memberType.findMany();
   },
 };

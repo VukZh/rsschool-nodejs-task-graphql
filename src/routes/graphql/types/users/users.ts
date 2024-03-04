@@ -11,6 +11,7 @@ import { PostType } from '../posts/posts.js';
 import { FastifyInstance } from 'fastify/types/instance.js';
 import { UUIDType } from '../uuid.js';
 import { GraphQLBoolean, GraphQLInputObjectType } from 'graphql/index.js';
+import {Context, FastifyInstanceType} from "../../dataloaders.js";
 
 export type UserEntity = { id: string; balance: number; name: string };
 
@@ -23,19 +24,22 @@ const UserType = new GraphQLObjectType({
     profile: {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       type: ProfileType,
-      resolve: async ({ id }: UserEntity, args: unknown, { prisma }: FastifyInstance) => {
+      resolve: async ({ id }: UserEntity, args: unknown,         { fastify: { prisma } }: Context,
+      ) => {
         return await prisma.profile.findUnique({ where: { userId: id } });
       },
     },
     posts: {
       type: new GraphQLList(PostType),
-      resolve: async ({ id }: UserEntity, args: unknown, { prisma }: FastifyInstance) => {
+      resolve: async ({ id }: UserEntity, args: unknown,         { fastify: { prisma } }: Context,
+      ) => {
         return await prisma.post.findMany({ where: { authorId: id } });
       },
     },
     userSubscribedTo: {
       type: new GraphQLList(UserType),
-      resolve: async ({ id }: UserEntity, args: unknown, { prisma }: FastifyInstance) => {
+      resolve: async ({ id }: UserEntity, args: unknown,         { fastify: { prisma } }: Context,
+      ) => {
         const usersSubscriber = await prisma.subscribersOnAuthors.findMany({
           where: { subscriberId: id },
         });
@@ -45,7 +49,8 @@ const UserType = new GraphQLObjectType({
     },
     subscribedToUser: {
       type: new GraphQLList(UserType),
-      resolve: async ({ id }: UserEntity, args: unknown, { prisma }: FastifyInstance) => {
+      resolve: async ({ id }: UserEntity, args: unknown,         { fastify: { prisma } }: Context,
+      ) => {
         const subscribers = await prisma.subscribersOnAuthors.findMany({
           where: { authorId: id },
         });
@@ -63,7 +68,7 @@ const UserQueryType = {
   resolve: async (
     source: unknown,
     { id }: { id: string },
-    { prisma }: FastifyInstance,
+    { fastify: { prisma } }: Context,
   ) => {
     return await prisma.user.findUnique({ where: { id } });
   },
@@ -71,7 +76,7 @@ const UserQueryType = {
 
 const UsersQueryType = {
   type: new GraphQLList(UserType),
-  resolve: async (source: unknown, args: unknown, { prisma }: FastifyInstance) => {
+  resolve: async (source: unknown, args: unknown,         { fastify: { prisma } }: Context) => {
     return await prisma.user.findMany();
   },
 };
@@ -102,7 +107,7 @@ const CreateUserMutationType = {
   resolve: async (
     source: unknown,
     { dto }: { dto: Omit<UserEntity, 'id'> },
-    { prisma }: FastifyInstance,
+    { fastify: { prisma } }: Context,
   ) => {
     return await prisma.user.create({ data: dto });
   },
@@ -117,7 +122,7 @@ const ChangeUserMutationType = {
   resolve: async (
     source: unknown,
     { id, dto }: { id: string; dto: Partial<Omit<UserEntity, 'id'>> },
-    { prisma }: FastifyInstance,
+    { fastify: { prisma } }: Context,
   ) => {
     return await prisma.user.update({ where: { id }, data: dto });
   },
@@ -133,7 +138,7 @@ const DeleteUserMutationType = {
   resolve: async (
     source: unknown,
     { id }: { id: string },
-    { prisma }: FastifyInstance,
+    { fastify: { prisma } }: Context,
   ) => {
     const result = await prisma.user.delete({ where: { id } });
     return !!result;
@@ -149,7 +154,7 @@ const SubscribeUserMutationType = {
   resolve: async (
     source: unknown,
     { userId, authorId }: { userId: string; authorId: string },
-    { prisma }: FastifyInstance,
+    { fastify: { prisma } }: Context,
   ) => {
     return await prisma.user.update({
       where: {
@@ -175,7 +180,7 @@ const UnsubscribeUserMutationType = {
   resolve: async (
     source: unknown,
     { userId, authorId }: { userId: string; authorId: string },
-    { prisma }: FastifyInstance,
+    { fastify: { prisma } }: Context,
   ) => {
     const result = await prisma.subscribersOnAuthors.delete({
       where: {

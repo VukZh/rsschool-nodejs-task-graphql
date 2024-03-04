@@ -5,15 +5,28 @@ import {
   GraphQLFloat,
   GraphQLList,
   GraphQLNonNull,
+  GraphQLResolveInfo,
 } from 'graphql';
 import { ProfileType } from '../profiles/profiles.js';
 import { PostType } from '../posts/posts.js';
-import { FastifyInstance } from 'fastify/types/instance.js';
 import { UUIDType } from '../uuid.js';
 import { GraphQLBoolean, GraphQLInputObjectType } from 'graphql/index.js';
-import {Context, FastifyInstanceType} from "../../dataloaders.js";
+import { Context } from '../../dataloaders.js';
+import {
+  ResolveTree,
+  parseResolveInfo,
+  simplifyParsedResolveInfoFragmentWithType,
+} from 'graphql-parse-resolve-info';
 
 export type UserEntity = { id: string; balance: number; name: string };
+type User = UserEntity & {
+  userSubscribedTo: Array<{ subscriberId: string; authorId: string }>;
+  subscribedToUser: Array<{ subscriberId: string; authorId: string }>;
+};
+type SubscribedType = {
+  subscribedToUser?: object;
+  userSubscribedTo?: object;
+};
 
 const UserType = new GraphQLObjectType({
   name: 'User',
@@ -24,38 +37,46 @@ const UserType = new GraphQLObjectType({
     profile: {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       type: ProfileType,
-      resolve: async ({ id }: UserEntity, args: unknown,         { fastify: { prisma } }: Context,
-      ) => {
-        return await prisma.profile.findUnique({ where: { userId: id } });
+      resolve: async ({ id }: UserEntity, args: unknown, { dataloaders }: Context) => {
+        return await dataloaders.profilesDataloader.load(id);
       },
     },
     posts: {
       type: new GraphQLList(PostType),
-      resolve: async ({ id }: UserEntity, args: unknown,         { fastify: { prisma } }: Context,
+      resolve: async (
+        { id }: UserEntity,
+        args: unknown,
+        { fastify: { prisma } }: Context,
       ) => {
         return await prisma.post.findMany({ where: { authorId: id } });
       },
     },
     userSubscribedTo: {
       type: new GraphQLList(UserType),
-      resolve: async ({ id }: UserEntity, args: unknown,         { fastify: { prisma } }: Context,
-      ) => {
-        const usersSubscriber = await prisma.subscribersOnAuthors.findMany({
-          where: { subscriberId: id },
+      resolve: async ({ id }: UserEntity, args: unknown, { dataloaders }: Context) => {
+        const usersSubscriber = (await dataloaders.usersDataloader.load(id)) as User;
+
+        const usersSubscriberIds = usersSubscriber.userSubscribedTo.map((item) => {
+          return dataloaders.usersDataloader.load(item.authorId);
         });
-        const usersSubscriberIds = usersSubscriber.map((s) => s.authorId);
-        return await prisma.user.findMany({ where: { id: { in: usersSubscriberIds } } });
+
+        const result = await Promise.all(usersSubscriberIds);
+
+        return result;
       },
     },
     subscribedToUser: {
       type: new GraphQLList(UserType),
-      resolve: async ({ id }: UserEntity, args: unknown,         { fastify: { prisma } }: Context,
-      ) => {
-        const subscribers = await prisma.subscribersOnAuthors.findMany({
-          where: { authorId: id },
+      resolve: async ({ id }: UserEntity, args: unknown, { dataloaders }: Context) => {
+        const subscribers = (await dataloaders.usersDataloader.load(id)) as User;
+
+        const subscribersIds = subscribers.subscribedToUser.map((item) => {
+          return dataloaders.usersDataloader.load(item.subscriberId);
         });
-        const subscribersIds = subscribers.map((s) => s.subscriberId);
-        return await prisma.user.findMany({ where: { id: { in: subscribersIds } } });
+
+        const result = await Promise.all(subscribersIds);
+
+        return result;
       },
     },
   }),
@@ -68,16 +89,60 @@ const UserQueryType = {
   resolve: async (
     source: unknown,
     { id }: { id: string },
-    { fastify: { prisma } }: Context,
+    { fastify: { prisma }, dataloaders }: Context,
+    resolveInfo: GraphQLResolveInfo,
   ) => {
-    return await prisma.user.findUnique({ where: { id } });
+    const parsedResolveInfoFragment = parseResolveInfo(resolveInfo);
+    const { fields } = simplifyParsedResolveInfoFragmentWithType(
+      parsedResolveInfoFragment as ResolveTree,
+      new GraphQLList(UserType),
+    );
+
+    const { subscribedToUser, userSubscribedTo } = fields as SubscribedType;
+
+    const users = await prisma.user.findMany({
+      include: {
+        subscribedToUser: subscribedToUser ? true : false,
+        userSubscribedTo: userSubscribedTo ? true : false,
+      },
+    });
+
+    users.forEach((user) => {
+      dataloaders.usersDataloader.prime(user.id, user);
+    });
+
+    return await dataloaders.usersDataloader.load(id);
   },
 };
 
 const UsersQueryType = {
   type: new GraphQLList(UserType),
-  resolve: async (source: unknown, args: unknown,         { fastify: { prisma } }: Context) => {
-    return await prisma.user.findMany();
+  resolve: async (
+    source: unknown,
+    args: unknown,
+    { fastify: { prisma }, dataloaders }: Context,
+    resolveInfo: GraphQLResolveInfo,
+  ) => {
+    const parsedResolveInfoFragment = parseResolveInfo(resolveInfo);
+    const { fields } = simplifyParsedResolveInfoFragmentWithType(
+      parsedResolveInfoFragment as ResolveTree,
+      new GraphQLList(UserType),
+    );
+
+    const { subscribedToUser, userSubscribedTo } = fields as SubscribedType;
+
+    const users = await prisma.user.findMany({
+      include: {
+        subscribedToUser: subscribedToUser ? true : false,
+        userSubscribedTo: userSubscribedTo ? true : false,
+      },
+    });
+
+    users.forEach((user) => {
+      dataloaders.usersDataloader.prime(user.id, user);
+    });
+
+    return users;
   },
 };
 
@@ -184,7 +249,8 @@ const UnsubscribeUserMutationType = {
   ) => {
     const result = await prisma.subscribersOnAuthors.delete({
       where: {
-        subscriberId_authorId: { subscriberId: userId, authorId }},
+        subscriberId_authorId: { subscriberId: userId, authorId },
+      },
     });
     return !!result;
   },

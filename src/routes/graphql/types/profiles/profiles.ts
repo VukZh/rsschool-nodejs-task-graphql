@@ -5,15 +5,13 @@ import {
   GraphQLInt,
   GraphQLList,
   GraphQLNonNull,
-  GraphQLString,
 } from 'graphql';
 import { UserType } from '../users/users.js';
 import { MemberType, MemberTypeIdType } from '../member-types/member-types.js';
-import { FastifyInstance } from 'fastify/types/instance.js';
 import { MemberTypeId } from '../../../member-types/schemas.js';
 import { UUIDType } from '../uuid.js';
 import { GraphQLInputObjectType } from 'graphql/index.js';
-import {Context, FastifyInstanceType} from "../../dataloaders.js";
+import { Context } from '../../dataloaders.js';
 
 type ProfileEntity = {
   id: string;
@@ -29,30 +27,28 @@ const ProfileType = new GraphQLObjectType({
     id: { type: new GraphQLNonNull(GraphQLID) },
     isMale: { type: GraphQLBoolean },
     yearOfBirth: { type: GraphQLInt },
+    userId: { type: UUIDType },
+    memberTypeId: { type: MemberTypeIdType },
     user: {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       type: UserType,
       resolve: async (
         { userId }: ProfileEntity,
-        args: unknown,
-        { fastify: { prisma } }: Context,
+        _args: unknown,
+        { dataloaders }: Context,
       ) => {
-        return await prisma.user.findUnique({ where: { id: userId } });
+        return await dataloaders.usersDataloader.load(userId);
       },
     },
-    userId: { type: UUIDType },
     memberType: {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       type: MemberType,
       resolve: async (
         { memberTypeId }: ProfileEntity,
-        args: unknown,
-        { fastify: { prisma } }: Context,
+        _args: unknown,
+        { dataloaders }: Context,
       ) => {
-        return await prisma.memberType.findUnique({ where: { id: memberTypeId } });
+        return await dataloaders.membersTypesDataloader.load(memberTypeId);
       },
     },
-    memberTypeId: { type: MemberTypeIdType },
   }),
 });
 
@@ -75,8 +71,7 @@ const ProfileQueryType = {
 
 const ProfilesQueryType = {
   type: new GraphQLList(ProfileType),
-  resolve: async (source: unknown, args: unknown,         { fastify: { prisma } }: Context,
-  ) => {
+  resolve: async (source: unknown, args: unknown, { fastify: { prisma } }: Context) => {
     return await prisma.profile.findMany();
   },
 };
@@ -127,7 +122,7 @@ const ChangeProfileMutationType = {
     { id, dto }: { id: string; dto: Partial<Omit<ProfileEntity, 'id' & 'userId'>> },
     { fastify: { prisma } }: Context,
   ) => {
-    console.log("dto", dto)
+    console.log('dto', dto);
     return await prisma.profile.update({ where: { id }, data: dto });
   },
 };

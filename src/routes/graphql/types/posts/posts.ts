@@ -8,9 +8,8 @@ import {
   GraphQLBoolean,
 } from 'graphql';
 import { UserType } from '../users/users.js';
-import { FastifyInstance } from 'fastify/types/instance.js';
 import { UUIDType } from '../uuid.js';
-import {Context, FastifyInstanceType} from "../../dataloaders.js";
+import { Context } from '../../dataloaders.js';
 
 type PostEntity = { id: string; title: string; content: string; authorId: string };
 const PostType = new GraphQLObjectType({
@@ -49,8 +48,7 @@ const PostQueryType = {
 
 const PostsQueryType = {
   type: new GraphQLList(PostType),
-  resolve: async (source: unknown, args: unknown,         { fastify: { prisma } }: Context,
-  ) => {
+  resolve: async (source: unknown, args: unknown, { fastify: { prisma } }: Context) => {
     return await prisma.post.findMany();
   },
 };

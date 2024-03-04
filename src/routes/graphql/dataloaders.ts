@@ -9,7 +9,7 @@ export type Context = {
   dataloaders: DataloadersType;
 };
 
-export type FastifyInstanceType = FastifyInstance<
+type FastifyInstanceType = FastifyInstance<
   RawServerDefault,
   IncomingMessage,
   ServerResponse<IncomingMessage>,
@@ -17,92 +17,62 @@ export type FastifyInstanceType = FastifyInstance<
   TypeBoxTypeProvider
 >;
 
-type DataloadersType = {
+export type DataloadersType = {
   usersDataloader: DataLoader<unknown, unknown, unknown>;
   postsDataloader: DataLoader<unknown, unknown, unknown>;
   profilesDataloader: DataLoader<unknown, unknown, unknown>;
   membersTypesDataloader: DataLoader<unknown, unknown, unknown>;
-  usersSubscribedToDataloader: DataLoader<unknown, unknown, unknown>;
-  subscribedToUsersDataloader: DataLoader<unknown, unknown, unknown>;
 };
 
-const dataloaders = async (fastify: FastifyInstanceType) => {
-
+const getDataloaders = (fastify: FastifyInstanceType) => {
   const MembersDataLoaderFunction = async (keys: unknown) => {
     const results = await fastify.prisma.memberType.findMany({
-      where: { id: { in: keys as Array<string>} },
+      where: { id: { in: keys as Array<string> } },
     });
-    return (keys as Array<string>).map(
-      (key) =>
-        results.find((memberType) => memberType.id === key)
+    return (keys as Array<string>).map((key) =>
+      results.find((memberType) => memberType.id === key),
     );
-  }
+  };
 
   const PostsDataLoaderFunction = async (keys: unknown) => {
     const results = await fastify.prisma.post.findMany({
-      where: { authorId: { in: keys as Array<string>} },
+      where: { authorId: { in: keys as Array<string> } },
     });
-    return (keys as Array<string>).map(
-      (key) =>
-        results.find((post) => post.authorId === key)
+    return (keys as Array<string>).map((key) =>
+      results.find((post) => post.authorId === key),
     );
-  }
+  };
 
   const ProfilesDataLoaderFunction = async (keys: unknown) => {
     const results = await fastify.prisma.profile.findMany({
       where: { userId: { in: keys as Array<string> } },
     });
-    return (keys as Array<string>).map(
-      (key) =>
-        results.find((profile) => profile.userId === key)
+    return (keys as Array<string>).map((key) =>
+      results.find((profile) => profile.userId === key),
     );
-  }
+  };
 
   const UsersDataLoaderFunction = async (keys: unknown) => {
     const results = await fastify.prisma.user.findMany({
-      where: { id: { in: keys as Array<string>} },
+      where: { id: { in: keys as Array<string> } },
     });
-    return (keys as Array<string>).map(
-      (key) =>
-        results.find((user) => user.id === key)
-    );
-  }
-
-  const subscribedToUsersDataloaderFunction = async (keys: unknown) => {
-    const results = await fastify.prisma.subscribersOnAuthors.findMany({
-      where: { authorId: { in: keys as Array<string>} },
-    });
-    return (keys as Array<string>).map((key) =>
-      results.filter((user) => user.authorId === key),
-    );
-  }
-
-  const usersSubscribedToDataloaderFunction = async (keys: unknown) => {
-    const results = await fastify.prisma.subscribersOnAuthors.findMany({
-      where: { subscriberId: { in: keys as Array<string>} },
-    });
-    return (keys as Array<string>).map((key) =>
-      results.filter((user) => user.subscriberId === key),
-    );
-  }
+    return (keys as Array<string>).map((key) => results.find((user) => user.id === key));
+  };
 
   const usersDataloader = new DataLoader(UsersDataLoaderFunction);
   const postsDataloader = new DataLoader(PostsDataLoaderFunction);
   const profilesDataloader = new DataLoader(ProfilesDataLoaderFunction);
   const membersTypesDataloader = new DataLoader(MembersDataLoaderFunction);
-  const subscribedToUsersDataloader = new DataLoader(subscribedToUsersDataloaderFunction);
-  const usersSubscribedToDataloader = new DataLoader(usersSubscribedToDataloaderFunction);
 
   const dataloaders: DataloadersType = {
     usersDataloader,
     postsDataloader,
     profilesDataloader,
     membersTypesDataloader,
-    subscribedToUsersDataloader,
-    usersSubscribedToDataloader
-  }
+  };
 
   return dataloaders;
 };
 
-export { dataloaders };
+// @ts-ignore
+export { getDataloaders };

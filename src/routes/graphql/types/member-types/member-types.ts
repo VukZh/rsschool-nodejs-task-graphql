@@ -9,10 +9,6 @@ import {
 import { ProfileType } from '../profiles/profiles.js';
 import { MemberTypeId } from '../../../member-types/schemas.js';
 
-import { FastifyBaseLogger, FastifyInstance, RawServerDefault } from 'fastify';
-import { IncomingMessage, ServerResponse } from 'node:http';
-import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
-import { FastifyInstanceType } from '../../dataloaders.js';
 import { Context } from '../../dataloaders.js';
 
 type MemberTypeEntity = {
